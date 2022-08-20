@@ -4,7 +4,11 @@ import Fluent
 import FluentPostgresDriver
 
 public func configureTelegramBot(_ app: Application) async throws {
-    
+
+    // Create Date Formatter once
+    let dateFormatter = DateFormatter()
+    dateFormatter.dateFormat = "MM/dd"
+
     app.databases.use(.postgres(
         hostname: Environment.get("DATABASE_HOST") ?? "localhost",
         port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? PostgresConfiguration.ianaPortNumber,
@@ -14,14 +18,58 @@ public func configureTelegramBot(_ app: Application) async throws {
     ), as: .psql)
 
     app.migrations.add(CreateSpending(), to: DatabaseID.psql)
-    
+
     try await app.autoMigrate()
 
     // config telegram bot
     let bot = TelegramBot(token: "5421614145:AAEWkGQOmqNRZU3V0mUT4PQ8rfC45NfP0sE")
 
+    let router = Router(bot: bot)
+
+    router["📜 list", [.caseSensitive]] = { [weak app] context in
+        guard let app = app else {
+            return false
+        }
+        let spendings: [Spending] = try Spending
+            .query(on: app.db)
+            .all()
+            .wait()
+        let results: [String] = spendings.compactMap {
+            var result = ""
+            if let date = $0.createdAt {
+                result.append(contentsOf: dateFormatter.string(from: date) + " ")
+            }
+            result.append(contentsOf: $0.identity.rawValue + " ")
+            result.append(contentsOf: $0.title + " ")
+            result.append(contentsOf: $0.cost)
+            return result
+        }
+        context.respondAsync(results.joined(separator: "\n"))
+        return true
+    }
+
+    router["start", [.slashRequired, .caseSensitive]] = { context in
+        let button = KeyboardButton(text: "📜 list")
+        let markup = ReplyKeyboardMarkup(
+            keyboard: [[button]],
+            resizeKeyboard: true,
+            oneTimeKeyboard: false,
+            selective: false
+        )
+        context.respondAsync(
+            "Welcome to use Co-Spending!",
+            disableNotification: true,
+            replyMarkup: .replyKeyboardMarkup(markup)
+        )
+        return true
+    }
+
     print("Ready to accept commands")
     while let update = bot.nextUpdateSync() {
+
+        guard try router.process(update: update) == false else {
+            continue
+        }
 
         await handleCallbackQuery(
             bot: bot,
@@ -94,24 +142,24 @@ private func handleCallbackQuery(
     query: CallbackQuery?,
     database: Database
 ) async {
-    
+
     guard let query = query,
           let queryString = query.data,
           let messageId = Int(queryString),
           let replyMessageId = query.message?.messageId else {
         return
     }
-    
+
     bot.deleteMessageAsync(
         chatId: .chat(query.from.id),
         messageId: replyMessageId
     )
-    
+
     bot.deleteMessageAsync(
         chatId: .chat(query.from.id),
         messageId: messageId
     )
-    
+
     do {
         if let spending = try await Spending.query(on: database)
             .filter(\.$messageId == messageId)
@@ -121,7 +169,8 @@ private func handleCallbackQuery(
             bot.answerCallbackQueryAsync(
                 callbackQueryId: query.id,
                 text: "🔥 Delete succeed!",
-                showAlert: false)
+                showAlert: false
+            )
         } else {
             throw Error.spendingNotExistInDB
         }
