@@ -31,6 +31,7 @@ services:
     image: 'andrew54068/co-spending:latest'
     build:
       context: .
+    platform: linux/amd64
     environment:
       <<: *shared_environment
     depends_on:
