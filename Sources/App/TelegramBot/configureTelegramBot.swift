@@ -63,6 +63,10 @@ public func configureTelegramBot(_ app: Application) async throws {
         )
         return true
     }
+    
+    router.partialMatch = { _ in false }
+    
+    router.unmatched = { _ in false }
 
     print("Ready to accept commands")
     while let update = bot.nextUpdateSync() {
