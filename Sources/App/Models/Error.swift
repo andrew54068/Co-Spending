@@ -10,7 +10,7 @@ enum Error: Swift.Error, LocalizedError {
     case databaseNotFound
     case spendingNotExistInDB
     
-    var errorDescription: String {
+    var errorDescription: String? {
         switch self {
         case .inputInvalid:
             return "input invalid"
