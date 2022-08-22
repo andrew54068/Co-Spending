@@ -26,6 +26,8 @@ public func configureTelegramBot(_ app: Application) async throws {
 
     let router = Router(bot: bot)
 
+    let budgetForMonth: Decimal = 30000
+
     router["📜 list", [.caseSensitive]] = { [weak app] context in
         guard let app = app else {
             return false
@@ -44,14 +46,56 @@ public func configureTelegramBot(_ app: Application) async throws {
             result.append(contentsOf: $0.cost)
             return result
         }
-        context.respondAsync(results.joined(separator: "\n"))
+        let total: Decimal = spendings.reduce(0) { $0 + (Decimal(string: $1.cost) ?? 0) }
+        var displayString = results.joined(separator: "\n")
+        displayString.append("\n\n📌 Total spending: \(total.stringValue)\n👉 \((budgetForMonth - total).stringValue) left.")
+        context.respondAsync(displayString)
+        return true
+    }
+
+    router["💰 budget left", [.caseSensitive]] = { [weak app] context in
+        guard let app = app else {
+            return false
+        }
+
+        let spendings: [Spending] = try Spending
+            .query(on: app.db)
+            .filter(\.$createdAt >= Date().startOfMonth())
+            .filter(\.$createdAt <= Date().endOfMonth())
+            .field(\.$cost)
+            .field(\.$createdAt)
+            .sort(\.$createdAt)
+            .all()
+            .wait()
+        guard spendings.isEmpty == false,
+              let veryFirstDate = spendings.first?.createdAt else {
+            context.respondAsync("Spendings not found.")
+            return true
+        }
+        let totalSpent: Decimal = spendings.reduce(0) { $0 + (Decimal(string: $1.cost) ?? 0) }
+        guard let range = Calendar.current.range(of: .day, in: .month, for: Date()) else {
+            return false
+        }
+        let numDays = range.count
+
+        let dateComponents = Calendar.current.dateComponents(in: TimeZone.current, from: veryFirstDate)
+        let day = dateComponents.day!
+        
+        let spentDay = Decimal(numDays - day + 1)
+        let proportionalBudget = spentDay / Decimal(numDays) * budgetForMonth
+
+        let avgLeft = (proportionalBudget - totalSpent) / spentDay
+        context.respondAsync("Already spent \(totalSpent.stringValue)! We can only spend \(avgLeft.intValue) each day left in current month.")
         return true
     }
 
     router["start", [.slashRequired, .caseSensitive]] = { context in
-        let button = KeyboardButton(text: "📜 list")
+        let button1 = KeyboardButton(text: "📜 list")
+        let button2 = KeyboardButton(text: "💰 budget left")
         let markup = ReplyKeyboardMarkup(
-            keyboard: [[button]],
+            keyboard: [
+                [button1, button2],
+            ],
             resizeKeyboard: true,
             oneTimeKeyboard: false,
             selective: false
@@ -63,9 +107,9 @@ public func configureTelegramBot(_ app: Application) async throws {
         )
         return true
     }
-    
+
     router.partialMatch = { _ in false }
-    
+
     router.unmatched = { _ in false }
 
     print("Ready to accept commands")

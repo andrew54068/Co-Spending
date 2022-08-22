@@ -45,7 +45,7 @@ final class Spending: Model {
         self.id = nil
         self.messageId = messageId
         self.title = title
-        self.cost = NSDecimalNumber(decimal: cost).stringValue
+        self.cost = cost.stringValue
         self.identity = identity
         self.createdAt = nil
     }
