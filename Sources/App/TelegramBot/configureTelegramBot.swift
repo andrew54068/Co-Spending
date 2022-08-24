@@ -82,10 +82,13 @@ public func configureTelegramBot(_ app: Application) async throws {
         let dateComponents = Calendar.current.dateComponents(in: TimeZone.current, from: veryFirstDate)
         let day = dateComponents.day!
 
+        let currentDateComponents = Calendar.current.dateComponents(in: TimeZone.current, from: Date())
+        let currentDateDay = currentDateComponents.day!
+
         let spentDay = Decimal(numDays - day + 1)
         let proportionalBudget = spentDay / Decimal(numDays) * budgetForMonth
 
-        let avgLeft = (proportionalBudget - totalSpent) / Decimal(numDays - day)
+        let avgLeft = (proportionalBudget - totalSpent) / Decimal(numDays - currentDateDay)
 
         var andrewSpent: Decimal = 0
         var vivianSpent: Decimal = 0
