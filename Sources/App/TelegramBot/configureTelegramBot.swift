@@ -64,6 +64,7 @@ public func configureTelegramBot(_ app: Application) async throws {
             .filter(\.$createdAt <= Date().endOfMonth())
             .field(\.$cost)
             .field(\.$createdAt)
+            .field(\.$identity)
             .sort(\.$createdAt)
             .all()
             .wait()
@@ -80,12 +81,29 @@ public func configureTelegramBot(_ app: Application) async throws {
 
         let dateComponents = Calendar.current.dateComponents(in: TimeZone.current, from: veryFirstDate)
         let day = dateComponents.day!
-        
+
         let spentDay = Decimal(numDays - day + 1)
         let proportionalBudget = spentDay / Decimal(numDays) * budgetForMonth
 
-        let avgLeft = (proportionalBudget - totalSpent) / spentDay
-        context.respondAsync("Already spent \(totalSpent.stringValue)! We can only spend \(avgLeft.intValue) each day left in current month.")
+        let avgLeft = (proportionalBudget - totalSpent) / Decimal(numDays - day)
+
+        var andrewSpent: Decimal = 0
+        var vivianSpent: Decimal = 0
+        for spending in spendings {
+            switch spending.identity {
+            case .andrew:
+                andrewSpent += (Decimal(string: spending.cost) ?? 0)
+            case .vivian:
+                vivianSpent += (Decimal(string: spending.cost) ?? 0)
+            }
+        }
+
+        var display = "Already spent \(totalSpent.stringValue)!"
+        display.append("\nWe can only spend \(avgLeft.intValue) each day left in current month.")
+        display.append("\n\(Identity.vivian.rawValue) spent \(vivianSpent.intValue).")
+        display.append("\n\(Identity.andrew.rawValue) spent \(andrewSpent.intValue).")
+
+        context.respondAsync(display)
         return true
     }
 
