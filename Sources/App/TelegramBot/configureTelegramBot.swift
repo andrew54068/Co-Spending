@@ -46,9 +46,23 @@ public func configureTelegramBot(_ app: Application) async throws {
             result.append(contentsOf: $0.cost)
             return result
         }
+
+        let veryFirstDate = spendings.first?.createdAt ?? Date()
+
+        guard let range = Calendar.current.range(of: .day, in: .month, for: Date()) else {
+            return false
+        }
+        let numDays = range.count
+
+        let dateComponents = Calendar.current.dateComponents(in: TimeZone.current, from: veryFirstDate)
+        let day = dateComponents.day!
+
+        let spentDay = Decimal(numDays - day + 1)
+        let proportionalBudget = spentDay / Decimal(numDays) * budgetForMonth
+
         let total: Decimal = spendings.reduce(0) { $0 + (Decimal(string: $1.cost) ?? 0) }
         var displayString = results.joined(separator: "\n")
-        displayString.append("\n\n📌 Total spending: \(total.stringValue)\n👉 \((budgetForMonth - total).stringValue) left.")
+        displayString.append("\n\n📌 Total spending: \(total.stringValue)\n👉 \((proportionalBudget - total).stringValue) left.")
         context.respondAsync(displayString)
         return true
     }
