@@ -62,7 +62,8 @@ public func configureTelegramBot(_ app: Application) async throws {
 
         let total: Decimal = spendings.reduce(0) { $0 + (Decimal(string: $1.cost) ?? 0) }
         var displayString = results.joined(separator: "\n")
-        displayString.append("\n\n📌 Total spending: \(total.stringValue)\n👉 \((proportionalBudget - total).stringValue) left.")
+        displayString.append("\n\n📌 Total spending: \(total.stringValue)")
+        displayString.append("\n👉 \((proportionalBudget - total).intValue) left.")
         context.respondAsync(displayString)
         return true
     }
@@ -281,7 +282,8 @@ private func parseInput(message: Message) throws -> Spending {
     }
 
     let costs: [(Int, Decimal)] = elements.enumerated().compactMap {
-        if let number = Decimal(string: $1) {
+        if Int($1) != nil,
+           let number = Decimal(string: $1) {
             return ($0, number)
         } else {
             return nil
