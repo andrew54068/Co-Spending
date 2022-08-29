@@ -147,6 +147,8 @@ public func configureTelegramBot(_ app: Application) async throws {
     router.partialMatch = { _ in false }
 
     router.unmatched = { _ in false }
+    
+    router.unsupportedContentType = nil
 
     print("Ready to accept commands")
     while let update = bot.nextUpdateSync() {
