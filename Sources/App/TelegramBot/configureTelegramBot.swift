@@ -147,7 +147,7 @@ public func configureTelegramBot(_ app: Application) async throws {
     router.partialMatch = { _ in false }
 
     router.unmatched = { _ in false }
-    
+
     router.unsupportedContentType = nil
 
     print("Ready to accept commands")
@@ -236,16 +236,6 @@ private func handleCallbackQuery(
         return
     }
 
-    bot.deleteMessageAsync(
-        chatId: .chat(query.from.id),
-        messageId: replyMessageId
-    )
-
-    bot.deleteMessageAsync(
-        chatId: .chat(query.from.id),
-        messageId: messageId
-    )
-
     do {
         if let spending = try await Spending.query(on: database)
             .filter(\.$messageId == messageId)
@@ -256,6 +246,16 @@ private func handleCallbackQuery(
                 callbackQueryId: query.id,
                 text: "🔥 Delete succeed!",
                 showAlert: false
+            )
+
+            bot.deleteMessageAsync(
+                chatId: .chat(query.from.id),
+                messageId: replyMessageId
+            )
+
+            bot.deleteMessageAsync(
+                chatId: .chat(query.from.id),
+                messageId: messageId
             )
         } else {
             throw Error.spendingNotExistInDB
