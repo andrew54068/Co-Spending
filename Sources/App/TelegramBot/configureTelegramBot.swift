@@ -3,7 +3,7 @@ import TelegramBotSDK
 import Fluent
 import FluentPostgresDriver
 
-public func configureTelegramBot(_ app: Application) async throws {
+public func configureTelegramBot(_ app: Application) throws {
 
     // Create Date Formatter once
     let dateFormatter = DateFormatter()
@@ -19,7 +19,7 @@ public func configureTelegramBot(_ app: Application) async throws {
 
     app.migrations.add(CreateSpending(), to: DatabaseID.psql)
 
-    try await app.autoMigrate()
+    try app.autoMigrate().wait()
 
     // config telegram bot
     let bot = TelegramBot(token: "5421614145:AAEWkGQOmqNRZU3V0mUT4PQ8rfC45NfP0sE")
@@ -157,7 +157,7 @@ public func configureTelegramBot(_ app: Application) async throws {
             continue
         }
 
-        await handleCallbackQuery(
+        handleCallbackQuery(
             bot: bot,
             query: update.callbackQuery,
             database: app.db
@@ -186,16 +186,17 @@ public func configureTelegramBot(_ app: Application) async throws {
             let reply: String
 
             if isEdited {
-                if let spending = try await Spending.query(on: app.db)
+                if let spending = try Spending.query(on: app.db)
                     .filter(\.$messageId == spending.messageId)
-                    .first() {
-                    try await spending.update(on: app.db)
+                    .first()
+                    .wait() {
+                    try spending.update(on: app.db).wait()
                 } else {
-                    try await spending.save(on: app.db)
+                    try spending.save(on: app.db).wait()
                 }
                 reply = "✅ Edited successfully! \(spending.identity.rawValue) spend \(spending.cost) on \(spending.title)"
             } else {
-                try await spending.save(on: app.db)
+                try spending.save(on: app.db).wait()
                 reply = "✅ Record successfully! \(spending.identity.rawValue) spend \(spending.cost) on \(spending.title)"
             }
 
@@ -227,7 +228,7 @@ private func handleCallbackQuery(
     bot: TelegramBot,
     query: CallbackQuery?,
     database: Database
-) async {
+) {
 
     guard let query = query,
           let queryString = query.data,
@@ -237,10 +238,11 @@ private func handleCallbackQuery(
     }
 
     do {
-        if let spending = try await Spending.query(on: database)
+        if let spending = try Spending.query(on: database)
             .filter(\.$messageId == messageId)
-            .first() {
-            try await spending.delete(on: database)
+            .first()
+            .wait() {
+            try spending.delete(on: database).wait()
 
             bot.answerCallbackQueryAsync(
                 callbackQueryId: query.id,
