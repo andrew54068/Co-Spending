@@ -1,6 +1,7 @@
 import Foundation
 
-enum Error: Swift.Error, LocalizedError {
+public enum Error: Swift.Error, LocalizedError {
+    case tokenNotFound
     case inputInvalid
     case identityInvalid
     case costShouldBeExectlyOne
@@ -10,8 +11,10 @@ enum Error: Swift.Error, LocalizedError {
     case databaseNotFound
     case spendingNotExistInDB
     
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
+        case .tokenNotFound:
+            return "telegram token not found."
         case .inputInvalid:
             return "input invalid"
         case .identityInvalid:
