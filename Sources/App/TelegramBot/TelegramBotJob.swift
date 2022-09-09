@@ -64,38 +64,50 @@ public struct TelegramBotJob: ScheduledJob {
 
                 let spending = try parseInput(message: message)
 
-                let reply: String
-
-                if isEdited {
-                    if let spending = try Spending.query(on: app.db)
-                        .filter(\.$messageId == spending.messageId)
-                        .first()
-                        .wait() {
-                        try spending.update(on: app.db).wait()
-                    } else {
-                        try spending.save(on: app.db).wait()
-                    }
-                    reply = "✅ Edited successfully! \(spending.identity.rawValue) spend \(spending.cost) on \(spending.title)"
-                } else {
-                    try spending.save(on: app.db).wait()
-                    reply = "✅ Record successfully! \(spending.identity.rawValue) spend \(spending.cost) on \(spending.title)"
-                }
-
                 let markup = InlineKeyboardMarkup(inlineKeyboard: [
                     [
                         InlineKeyboardButton(text: "delete", callbackData: "\(message.messageId)"),
                     ],
                 ])
 
-                bot.sendMessageAsync(
-                    chatId: .chat(fromId),
-                    text: reply,
-                    replyToMessageId: message.messageId,
-                    replyMarkup: ReplyMarkup.inlineKeyboardMarkup(markup)
-                )
-                app.console.info(reply)
-                app.console.info("save spending \(spending.title)!")
-                return context.eventLoop.makeSucceededFuture(())
+                let updateFuture: EventLoopFuture<Void>
+
+                if isEdited {
+                    updateFuture = Spending.query(on: app.db)
+                        .filter(\.$messageId == spending.messageId)
+                        .first()
+                        .flatMap { existingSpending in
+                            if existingSpending != nil {
+                                return spending.update(on: app.db)
+                            } else {
+                                return spending.save(on: app.db)
+                            }
+                        }
+                } else {
+                    spending.save(on: app.db)
+                }
+
+                updateFuture.flatMap { _ in
+                    var reply: String
+                    if isEdited {
+                        reply = "✅ Edited"
+                    } else {
+                        reply = "✅ Record"
+                    }
+
+                    reply.append(" successfully! \(spending.identity.rawValue) spend \(spending.cost) on \(spending.title)")
+
+                    bot.sendMessageAsync(
+                        chatId: .chat(fromId),
+                        text: reply,
+                        replyToMessageId: message.messageId,
+                        replyMarkup: ReplyMarkup.inlineKeyboardMarkup(markup)
+                    )
+                    app.console.info(reply)
+                    app.console.info("save spending \(spending.title)!")
+                }
+
+                return updateFuture
             } catch {
                 bot.sendMessageAsync(
                     chatId: .chat(fromId),
@@ -114,7 +126,6 @@ private func handleCallbackQuery(
     query: CallbackQuery?,
     database: Database
 ) {
-
     guard let query = query,
           let queryString = query.data,
           let messageId = Int(queryString),
@@ -122,37 +133,36 @@ private func handleCallbackQuery(
         return
     }
 
-    do {
-        if let spending = try Spending.query(on: database)
-            .filter(\.$messageId == messageId)
-            .first()
-            .wait() {
-            try spending.delete(on: database).wait()
+    Spending.query(on: database)
+        .filter(\.$messageId == messageId)
+        .first()
+        .whenSuccess { spending in
+            if let spending = spending {
+                spending.delete(on: database)
+                    .map { _ in
+                        bot.answerCallbackQueryAsync(
+                            callbackQueryId: query.id,
+                            text: "🔥 Delete succeed!",
+                            showAlert: false
+                        )
 
-            bot.answerCallbackQueryAsync(
-                callbackQueryId: query.id,
-                text: "🔥 Delete succeed!",
-                showAlert: false
-            )
+                        bot.deleteMessageAsync(
+                            chatId: .chat(query.from.id),
+                            messageId: replyMessageId
+                        )
 
-            bot.deleteMessageAsync(
-                chatId: .chat(query.from.id),
-                messageId: replyMessageId
-            )
-
-            bot.deleteMessageAsync(
-                chatId: .chat(query.from.id),
-                messageId: messageId
-            )
-        } else {
-            throw Error.spendingNotExistInDB
+                        bot.deleteMessageAsync(
+                            chatId: .chat(query.from.id),
+                            messageId: messageId
+                        )
+                    }
+            } else {
+                bot.sendMessageAsync(
+                    chatId: .chat(query.from.id),
+                    text: "❗️ Failed! \(error.localizedDescription)"
+                )
+            }
         }
-    } catch {
-        bot.sendMessageAsync(
-            chatId: .chat(query.from.id),
-            text: "❗️ Failed! \(error.localizedDescription)"
-        )
-    }
 }
 
 private func parseInput(message: Message) throws -> Spending {
