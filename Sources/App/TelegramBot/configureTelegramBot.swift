@@ -118,7 +118,7 @@ public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws ->
                     }
                 }
 
-                var display = "Already spent \(totalSpent.intValue)!"
+                var display = "Already spent \(totalSpent.intValue) currently!"
                 display.append("\nWe can only spend \(avgLeft.intValue) each day left in current month.")
                 display.append("\n\(Identity.vivian.rawValue) spent \(vivianSpent.intValue)/\((budgetForMonth / 3).intValue).")
                 display.append("\n\(Identity.andrew.rawValue) spent \(andrewSpent.intValue)/\((budgetForMonth / 3 * 2).intValue).")
@@ -176,7 +176,7 @@ public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws ->
                     }
                 }
 
-                var display = "Already spent \(totalSpent.intValue)!"
+                var display = "Last most spent \(totalSpent.intValue)!"
                 display.append("\nVivian part should be \((totalSpent / 3).intValue)")
                 display.append("\nAndrew part should be \((totalSpent / 3 * 2).intValue)")
                 display.append("\nWe can only spend \(avgLeft.intValue) each day left in current month.")
