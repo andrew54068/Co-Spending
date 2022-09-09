@@ -76,7 +76,7 @@ public struct TelegramBotJob: ScheduledJob {
                     updateFuture = Spending.query(on: app.db)
                         .filter(\.$messageId == spending.messageId)
                         .first()
-                        .flatMap { existingSpending in
+                        .flatMap { existingSpending -> EventLoopFuture<Void> in
                             if existingSpending != nil {
                                 return spending.update(on: app.db)
                             } else {
@@ -84,10 +84,10 @@ public struct TelegramBotJob: ScheduledJob {
                             }
                         }
                 } else {
-                    spending.save(on: app.db)
+                    updateFuture = spending.save(on: app.db)
                 }
 
-                updateFuture.flatMap { _ in
+                return updateFuture.map { _ in
                     var reply: String
                     if isEdited {
                         reply = "✅ Edited"
@@ -105,9 +105,8 @@ public struct TelegramBotJob: ScheduledJob {
                     )
                     app.console.info(reply)
                     app.console.info("save spending \(spending.title)!")
+                    return
                 }
-
-                return updateFuture
             } catch {
                 bot.sendMessageAsync(
                     chatId: .chat(fromId),
@@ -138,7 +137,7 @@ private func handleCallbackQuery(
         .first()
         .whenSuccess { spending in
             if let spending = spending {
-                spending.delete(on: database)
+                _ = spending.delete(on: database)
                     .map { _ in
                         bot.answerCallbackQueryAsync(
                             callbackQueryId: query.id,
@@ -159,7 +158,7 @@ private func handleCallbackQuery(
             } else {
                 bot.sendMessageAsync(
                     chatId: .chat(query.from.id),
-                    text: "❗️ Failed! \(error.localizedDescription)"
+                    text: "❗️ Failed! \(Error.spendingNotExistInDB.localizedDescription)"
                 )
             }
         }
