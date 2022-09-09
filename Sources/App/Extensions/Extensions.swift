@@ -10,11 +10,22 @@ import Foundation
 extension Date {
 
     func startOfMonth() -> Date {
-        Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Calendar.current.startOfDay(for: self)))!
+        let components = Calendar.current.dateComponents(
+            [.year, .month],
+            from: Calendar.current.startOfDay(for: self))
+        return Calendar.current.date(from: components)!
     }
 
     func endOfMonth() -> Date {
-        Calendar.current.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth())!
+        Calendar.current.date(byAdding: DateComponents(month: 1, second: -1), to: startOfMonth())!
+    }
+    
+    func startOfPreviousMonth() -> Date {
+        Calendar.current.date(byAdding: DateComponents(month: -1), to: startOfMonth())!
+    }
+    
+    func endOfPreviousMonth() -> Date {
+        Calendar.current.date(byAdding: DateComponents(second: -1), to: startOfMonth())!
     }
 
 }
