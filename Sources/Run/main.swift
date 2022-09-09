@@ -10,11 +10,10 @@ let app = Application(env)
 defer { app.shutdown() }
 try configure(app)
 
-guard let token: String = Environment.get("TelegramBotToken") else {
-    throw Error.tokenNotFound
-}
+let token1 = "5421614145"
+let token2 = "AAEWkGQOmqNRZU3V0mUT4PQ8rfC45NfP0sE"
 
-let bot = TelegramBot(token: token)
+let bot = TelegramBot(token: [token1, token2].joined(separator: ":"))
 let router: TelegramBotSDK.Router = try configureTelegramBot(app, bot: bot)
 let job = TelegramBotJob(
     app: app,
