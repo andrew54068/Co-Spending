@@ -63,7 +63,7 @@ public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws ->
 
                 let total: Decimal = spendings.reduce(0) { $0 + (Decimal(string: $1.cost) ?? 0) }
                 var displayString = results.joined(separator: "\n")
-                displayString.append("\n\n📌 Total spending: \(total.stringValue)")
+                displayString.append("\n\n📌 Total spending: \(total.intValue)")
                 displayString.append("\n👉 \((proportionalBudget - total).intValue) left.")
                 context.respondAsync(displayString)
             }
@@ -118,7 +118,7 @@ public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws ->
                     }
                 }
 
-                var display = "Already spent \(totalSpent.stringValue)!"
+                var display = "Already spent \(totalSpent.intValue)!"
                 display.append("\nWe can only spend \(avgLeft.intValue) each day left in current month.")
                 display.append("\n\(Identity.vivian.rawValue) spent \(vivianSpent.intValue)/\((budgetForMonth / 3).intValue).")
                 display.append("\n\(Identity.andrew.rawValue) spent \(andrewSpent.intValue)/\((budgetForMonth / 3 * 2).intValue).")
@@ -176,7 +176,9 @@ public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws ->
                     }
                 }
 
-                var display = "Already spent \(totalSpent.stringValue)!"
+                var display = "Already spent \(totalSpent.intValue)!"
+                display.append("\nVivian part should be \((totalSpent / 3).intValue)")
+                display.append("\nAndrew part should be \((totalSpent / 3 * 2).intValue)")
                 display.append("\nWe can only spend \(avgLeft.intValue) each day left in current month.")
                 display.append("\n\(Identity.vivian.rawValue) spent \(vivianSpent.intValue)/\((budgetForMonth / 3).intValue).")
                 display.append("\n\(Identity.andrew.rawValue) spent \(andrewSpent.intValue)/\((budgetForMonth / 3 * 2).intValue).")
