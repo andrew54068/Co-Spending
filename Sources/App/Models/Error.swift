@@ -10,6 +10,7 @@ public enum Error: Swift.Error, LocalizedError {
     case chetIdNotFound
     case databaseNotFound
     case spendingNotExistInDB
+    case webhookURLNotFound
     
     public var errorDescription: String? {
         switch self {
@@ -31,6 +32,8 @@ public enum Error: Swift.Error, LocalizedError {
             return "database not found"
         case .spendingNotExistInDB:
             return "spending not exist in db"
+        case .webhookURLNotFound:
+            return "webhook url not found"
         }
     }
 }

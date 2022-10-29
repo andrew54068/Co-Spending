@@ -12,111 +12,99 @@ import Queues
 import Fluent
 import FluentPostgresDriver
 
-public struct TelegramBotJob: ScheduledJob {
+public struct TelegramBotJob: AsyncJob {
+    public typealias Payload = Update
 
-    let app: Application
-    let bot: TelegramBot
-    let router: TelegramBotSDK.Router
+    public func dequeue(_ context: Queues.QueueContext, _ payload: Update) async throws {
+        let app = context.application
+        let bot = app.telegramBot
+        let router = context.application.telegramRouter
+        let update = payload
 
-    public init(
-        app: Application,
-        bot: TelegramBot,
-        router: TelegramBotSDK.Router
-    ) {
-        self.app = app
-        self.bot = bot
-        self.router = router
+        guard try router.process(update: update) == false else {
+            return
+        }
+
+        handleCallbackQuery(
+            bot: bot,
+            query: update.callbackQuery,
+            database: app.db
+        )
+
+        guard let fromId = (update.message?.from?.id ?? update.editedMessage?.from?.id) else {
+            app.console.info(String(describing: Error.chetIdNotFound))
+            throw Error.chetIdNotFound
+        }
+
+        var message: Message
+        var isEdited: Bool = false
+        if let msg = update.message {
+            message = msg
+            isEdited = false
+        } else if let msg = update.editedMessage {
+            message = msg
+            isEdited = true
+        } else {
+            throw Error.messageNotFound
+        }
+
+        let spending = try parseInput(message: message)
+
+        let markup = InlineKeyboardMarkup(inlineKeyboard: [
+            [
+                InlineKeyboardButton(text: "delete", callbackData: "\(message.messageId)"),
+            ],
+        ])
+
+        if isEdited {
+            let existingSpending = try await Spending.query(on: app.db)
+                .filter(\.$messageId == spending.messageId)
+                .first()
+
+            if existingSpending != nil {
+                try await spending.update(on: app.db)
+            } else {
+                try await spending.save(on: app.db)
+            }
+        } else {
+            try await spending.save(on: app.db)
+        }
+
+        var reply: String
+        if isEdited {
+            reply = "✅ Edited"
+        } else {
+            reply = "✅ Record"
+        }
+
+        reply.append(" successfully! \(spending.identity.rawValue) spend \(spending.cost) on \(spending.title)")
+
+        bot.sendMessageAsync(
+            chatId: .chat(fromId),
+            text: reply,
+            replyToMessageId: message.messageId,
+            replyMarkup: ReplyMarkup.inlineKeyboardMarkup(markup)
+        )
+        app.console.info(reply)
+        app.console.info("save spending \(spending.title)!")
     }
 
-    public func run(context: QueueContext) -> EventLoopFuture<Void> {
-        guard let update = bot.nextUpdateSync() else {
-            return context.eventLoop.makeSucceededFuture(())
+    func error(
+        _ context: QueueContext,
+        _ error: Error,
+        _ payload: Update
+    ) async throws {
+        let app = context.application
+        let bot = app.telegramBot
+        guard let fromId = (payload.message?.from?.id ?? payload.editedMessage?.from?.id) else {
+            app.console.info(String(describing: Error.chetIdNotFound))
+            throw Error.chetIdNotFound
         }
-
-        do {
-            guard try router.process(update: update) == false else {
-                return context.eventLoop.makeSucceededFuture(())
-            }
-
-            handleCallbackQuery(
-                bot: bot,
-                query: update.callbackQuery,
-                database: app.db
-            )
-
-            guard let fromId = (update.message?.from?.id ?? update.editedMessage?.from?.id) else {
-                app.console.info(String(describing: Error.chetIdNotFound))
-                throw Error.chetIdNotFound
-            }
-
-            do {
-                var message: Message
-                var isEdited: Bool = false
-                if let msg = update.message {
-                    message = msg
-                    isEdited = false
-                } else if let msg = update.editedMessage {
-                    message = msg
-                    isEdited = true
-                } else {
-                    throw Error.messageNotFound
-                }
-
-                let spending = try parseInput(message: message)
-
-                let markup = InlineKeyboardMarkup(inlineKeyboard: [
-                    [
-                        InlineKeyboardButton(text: "delete", callbackData: "\(message.messageId)"),
-                    ],
-                ])
-
-                let updateFuture: EventLoopFuture<Void>
-
-                if isEdited {
-                    updateFuture = Spending.query(on: app.db)
-                        .filter(\.$messageId == spending.messageId)
-                        .first()
-                        .flatMap { existingSpending -> EventLoopFuture<Void> in
-                            if existingSpending != nil {
-                                return spending.update(on: app.db)
-                            } else {
-                                return spending.save(on: app.db)
-                            }
-                        }
-                } else {
-                    updateFuture = spending.save(on: app.db)
-                }
-
-                return updateFuture.map { _ in
-                    var reply: String
-                    if isEdited {
-                        reply = "✅ Edited"
-                    } else {
-                        reply = "✅ Record"
-                    }
-
-                    reply.append(" successfully! \(spending.identity.rawValue) spend \(spending.cost) on \(spending.title)")
-
-                    bot.sendMessageAsync(
-                        chatId: .chat(fromId),
-                        text: reply,
-                        replyToMessageId: message.messageId,
-                        replyMarkup: ReplyMarkup.inlineKeyboardMarkup(markup)
-                    )
-                    app.console.info(reply)
-                    app.console.info("save spending \(spending.title)!")
-                    return
-                }
-            } catch {
-                bot.sendMessageAsync(
-                    chatId: .chat(fromId),
-                    text: "❗️ Failed! \(error.localizedDescription)"
-                )
-                return context.eventLoop.makeFailedFuture(error)
-            }
-        } catch {
-            return context.eventLoop.makeFailedFuture(error)
-        }
+        bot.sendMessageAsync(
+            chatId: .chat(fromId),
+            text: "❗️ Failed! \(error.localizedDescription)"
+        )
+        throw error
     }
 }
 

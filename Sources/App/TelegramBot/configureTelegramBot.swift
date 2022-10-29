@@ -3,30 +3,28 @@ import TelegramBotSDK
 import Fluent
 import FluentPostgresDriver
 
-public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws -> TelegramBotSDK.Router {
+public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws {
 
     // Create Date Formatter once
     let dateFormatter = DateFormatter()
     dateFormatter.dateFormat = "MM/dd"
 
-    app.databases.use(.postgres(
-        hostname: Environment.get("DATABASE_HOST") ?? "localhost",
-        port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? PostgresConfiguration.ianaPortNumber,
-        username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
-        password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
-        database: Environment.get("DATABASE_NAME") ?? "vapor_database"
-    ), as: .psql)
-
-    app.migrations.add(CreateSpending(), to: DatabaseID.psql)
-
-    try app.autoMigrate().wait()
+    guard let webhookURLString = Environment.get("TELEGRAM_WEBHOOK_URL") else {
+        throw Error.webhookURLNotFound
+    }
+    // set up webhook
+    bot.setWebhookAsync(url: webhookURLString)
 
     // config telegram bot
-    let router = Router(bot: bot)
+    let router = app.telegramRouter
 
     let budgetForMonth: Decimal = 30000
 
-    router["📜 list", [.caseSensitive]] = { [weak app] context in
+    let listRouterKey = "📜 list"
+    let budgetLeftRouterKey = "💰 budget left"
+    let settleSpendingsRouterKey = "🤑 settle spendings"
+
+    router[listRouterKey, [.caseSensitive]] = { [weak app] context in
         guard let app = app else {
             return false
         }
@@ -70,7 +68,7 @@ public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws ->
         return true
     }
 
-    router["💰 budget left", [.caseSensitive]] = { [weak app] context in
+    router[budgetLeftRouterKey, [.caseSensitive]] = { [weak app] context in
         guard let app = app else {
             return false
         }
@@ -128,7 +126,7 @@ public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws ->
         return true
     }
 
-    router["🤑 settle spendings", [.caseSensitive]] = { [weak app] context in
+    router[settleSpendingsRouterKey, [.caseSensitive]] = { [weak app] context in
         guard let app = app else {
             return false
         }
@@ -197,9 +195,9 @@ public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws ->
     }
 
     router["start", [.slashRequired, .caseSensitive]] = { context in
-        let button1 = KeyboardButton(text: "📜 list")
-        let button2 = KeyboardButton(text: "💰 budget left")
-        let button3 = KeyboardButton(text: "🤑 settle spendings")
+        let button1 = KeyboardButton(text: listRouterKey)
+        let button2 = KeyboardButton(text: budgetLeftRouterKey)
+        let button3 = KeyboardButton(text: settleSpendingsRouterKey)
         let markup = ReplyKeyboardMarkup(
             keyboard: [
                 [button1, button2, button3],
@@ -223,6 +221,4 @@ public func configureTelegramBot(_ app: Application, bot: TelegramBot) throws ->
     router.unsupportedContentType = nil
 
     print("Ready to accept commands")
-
-    return router
 }
