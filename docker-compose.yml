@@ -34,6 +34,8 @@ services:
     platform: linux/amd64
     environment:
       <<: *shared_environment
+    env_file:
+      - .env
     depends_on:
       - db
       - redis
