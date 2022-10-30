@@ -32,8 +32,6 @@ services:
     build:
       context: .
     platform: linux/amd64
-    env_file:
-      - .env
     environment:
       <<: *shared_environment
     depends_on:
