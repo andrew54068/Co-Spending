@@ -10,7 +10,7 @@ let app = Application(env)
 defer { app.shutdown() }
 
 guard let token: String = Environment.get("TelegramBotToken") else {
-    fatalError("contractEnv not found")
+    fatalError("Telegram bot token not found")
 }
 app.bot.initialize(token: token)
 try configureTelegramBot(app, bot: app.telegramBot)
