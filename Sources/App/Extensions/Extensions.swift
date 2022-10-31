@@ -37,7 +37,7 @@ extension Decimal {
     }
     
     var intValue: Int {
-        Int((self as NSDecimalNumber).floatValue)
+        Int((self as NSDecimalNumber).intValue)
     }
     
 }
